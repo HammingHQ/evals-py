@@ -20,6 +20,7 @@ from .types import (
     DatasetItem,
     ExperimentItemContext,
     ExperimentItem,
+    InputType,
     OutputType,
     TraceEventType,
     GenerationParams,
@@ -93,14 +94,11 @@ class Experiments(APIResource):
         scoring = opts.scoring or DEFAULT_SCORE_TYPES
         metadata = opts.metadata or {}
 
-        # event_loop = asyncio.get_event_loop()
-
-        # async def execute_runner(f: Runner, *args, **kwargs):
-        #     if inspect.iscoroutinefunction(f):
-        #         return await f(*args, **kwargs)
-        #     else:
-        #         pass
-        #     return await event_loop.run_in_executor(f,  args, kwargs)
+        def execute_runner(run: Runner, input: InputType) -> OutputType:
+            if inspect.iscoroutinefunction(run):
+                return asyncio.run(run(input))
+            else:
+                return run(input)
 
         experiment = self._start(name, dataset_id, scoring, metadata)
         url_origin = get_url_origin(self._client.base_url)
@@ -109,8 +107,7 @@ class Experiments(APIResource):
         try:
             for dataset_item in dataset.items:
                 item_context = self._items.start(experiment, dataset_item)
-                # output = await execute_runner(run, dataset_item.input)
-                output = run(dataset_item.input)
+                output = execute_runner(run, dataset_item.input)
                 self._items.end(item_context, output)
             self._end(experiment)
             return RunResult(url=experiment_url)
