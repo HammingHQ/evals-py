@@ -46,8 +46,7 @@ class RunOptions(BaseModel):
 
 
 Runner: TypeAlias = Union[
-    Callable[[InputType], OutputType], 
-    Callable[[InputType], Awaitable[OutputType]]
+    Callable[[InputType], OutputType], Callable[[InputType], Awaitable[OutputType]]
 ]
 
 

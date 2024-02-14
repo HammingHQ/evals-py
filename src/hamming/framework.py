@@ -14,8 +14,7 @@ class Hamming(HttpClient):
     def __init__(self, config: ClientOptions) -> None:
         super().__init__(
             HttpClientOptions(
-                api_key=config.api_key, 
-                base_url=config.base_url or DEFAULT_BASE_URL
+                api_key=config.api_key, base_url=config.base_url or DEFAULT_BASE_URL
             )
         )
         self.experiments = resources.Experiments(self)
