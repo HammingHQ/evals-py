@@ -1,2 +1,5 @@
+dist/
 build/
+src/hamming_sdk.egg-info/
 __pycache__/
+*.pyc
