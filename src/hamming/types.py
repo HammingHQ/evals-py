@@ -31,6 +31,7 @@ class ScoreType(str, Enum):
     HALLUCINATION = "hallucination"
     STRING_DIFF = "string_diff"
     REFUSAL = "refusal"
+    SQL_AST = "sql_ast"
 
 
 InputType: TypeAlias = Dict
