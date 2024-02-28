@@ -1,15 +1,13 @@
-import queue
-
 from . import APIResource
 from ..types import (
     ExperimentTrace,
     MonitoringTrace,
-    TraceEventType, 
-    GenerationParams, 
-    RetrievalParams, 
+    TraceEventType,
+    GenerationParams,
+    RetrievalParams,
     Document,
     LogMessage,
-    LogMessageType
+    LogMessageType,
 )
 
 
@@ -66,13 +64,10 @@ class Tracing(APIResource):
         event = params.model_dump()
         event["kind"] = "vector"
         return event
-    
+
     def _log_live_trace(self, trace: MonitoringTrace):
         self._client._logger.log(
-            LogMessage(
-                message_type=LogMessageType.Monitoring,
-                message_payload=trace
-            )
+            LogMessage(message_type=LogMessageType.Monitoring, message_payload=trace)
         )
 
     def log(self, trace: TraceEventType):

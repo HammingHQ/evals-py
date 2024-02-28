@@ -139,6 +139,7 @@ class GenerationParams(BaseModel):
         completion_tokens: int
         prompt_tokens: int
         total_tokens: int
+
     class Metadata(BaseModel):
         provider: Optional[Union[LLMProvider, str]] = None
         model: Optional[str] = None
@@ -176,21 +177,26 @@ class ExperimentTrace(BaseModel):
     parentId: Optional[int] = None
     event: TraceEventType
 
+
 class MonitoringTraceContext(BaseModel):
     session_id: str
     seq_id: int
     parent_seq_id: Optional[int] = None
 
+
 class MonitoringTrace(MonitoringTraceContext):
     event: TraceEventType
+
 
 class MonitoringItemStatus(str, Enum):
     STARTED = "STARTED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
+
 class LogMessageType(str, Enum):
     Monitoring = "monitoring"
+
 
 class LogMessage(BaseModel):
     message_type: LogMessageType

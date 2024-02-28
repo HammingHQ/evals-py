@@ -6,11 +6,7 @@ import threading
 import time
 
 from .api_resource import APIResource
-from ..types import (
-    MonitoringTrace, 
-    MonitoringTraceContext, 
-    MonitoringItemStatus
-)
+from ..types import MonitoringTrace, MonitoringTraceContext, MonitoringItemStatus
 
 
 @dataclass
@@ -35,16 +31,13 @@ class Monitoring(APIResource):
             self._session = None
             self._client.tracing._set_live(False)
 
-    def start_item(self, 
-        input: Optional[dict] = {},
-        metadata: Optional[dict] = {}
-    ):
+    def start_item(self, input: Optional[dict] = {}, metadata: Optional[dict] = {}):
         (session_id, seq_id) = self._next_seq_id()
         item = MonitoringItem(self, session_id, seq_id)
         item._start(input, metadata)
         self._current_item.set(item)
         return item
-    
+
     def _end_item(self, trace: MonitoringTrace):
         self._current_item.set(None)
         self._client.tracing._log_live_trace(trace)
@@ -80,12 +73,7 @@ class MonitoringItem:
     _error_message: Optional[str] = None
     _start_ts: Optional[float]
 
-    def __init__(
-        self, 
-        monitoring: Monitoring,
-        session_id: str,
-        seq_id: int
-    ):
+    def __init__(self, monitoring: Monitoring, session_id: str, seq_id: int):
         self._monitoring = monitoring
         self._session_id = session_id
         self._seq_id = seq_id
@@ -106,22 +94,20 @@ class MonitoringItem:
         self._start_ts = time.time()
         self._status = MonitoringItemStatus.STARTED
 
-    def _end(self, 
-        error: bool = False, 
-        error_message: Optional[str] = None
-    ):
+    def _end(self, error: bool = False, error_message: Optional[str] = None):
         if self._has_ended():
             return
         self._metrics["duration_ms"] = int((time.time() - self._start_ts) * 1000)
-        self._status = MonitoringItemStatus.FAILED if error else MonitoringItemStatus.COMPLETED
+        self._status = (
+            MonitoringItemStatus.FAILED if error else MonitoringItemStatus.COMPLETED
+        )
         self._error_message = error_message
         self._monitoring._end_item(self._to_trace())
 
-    
     def _has_ended(self) -> bool:
         return self._status in [
-            MonitoringItemStatus.COMPLETED, 
-            MonitoringItemStatus.FAILED
+            MonitoringItemStatus.COMPLETED,
+            MonitoringItemStatus.FAILED,
         ]
 
     def _to_trace(self) -> MonitoringTrace:

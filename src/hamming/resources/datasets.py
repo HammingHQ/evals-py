@@ -1,10 +1,6 @@
 from .api_resource import APIResource
 
-from ..types import (
-    DatasetWithItems,
-    Dataset,
-    CreateDatasetOptions
-)
+from ..types import DatasetWithItems, Dataset, CreateDatasetOptions
 
 
 class Datasets(APIResource):
