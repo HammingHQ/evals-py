@@ -1,51 +1,29 @@
-from __future__ import annotations
-
-from datetime import datetime
-from typing import TYPE_CHECKING, Optional
 import asyncio
 import inspect
+from datetime import datetime
+from typing import Optional
 
-from .utils import get_url_origin
-from .types import (
+from ..types import (
+    DatasetItem,
+    Experiment,
+    ExperimentItem,
+    ExperimentItemContext,
+    ExperimentStatus,
+    InputType,
+    MetadataType,
+    OutputType,
+    Runner,
     RunOptions,
     RunResult,
-    Runner,
-    DatasetWithItems,
-    Dataset,
-    CreateDatasetOptions,
     ScoreType,
-    MetadataType,
-    Experiment,
-    ExperimentStatus,
-    DatasetItem,
-    ExperimentItemContext,
-    ExperimentItem,
-    InputType,
-    OutputType,
-    TraceEventType,
-    GenerationParams,
-    RetrievalParams,
-    Document,
 )
-
-if TYPE_CHECKING:
-    from . import framework
-
+from ..utils import get_url_origin
+from .api_resource import APIResource
 
 DEFAULT_SCORE_TYPES: list[ScoreType] = [ScoreType.STRING_DIFF]
 
 
-class APIResource:
-    _client: framework.Hamming
-
-    def __init__(self, client: framework.Hamming):
-        self._client = client
-
-
 class ExperimentItems(APIResource):
-    def __init__(self, client: framework.Hamming):
-        super().__init__(client)
-
     def start(
         self, experiment: Experiment, dataset_item: DatasetItem
     ) -> ExperimentItemContext:
@@ -82,7 +60,7 @@ class Experiments(APIResource):
         now_str = now.isoformat(sep=" ")
         return f"Experiment for {dataset_name} - {now_str}"
 
-    def __init__(self, client: framework.Hamming) -> None:
+    def __init__(self, client) -> None:
         super().__init__(client)
         self._items = ExperimentItems(client)
 
@@ -144,84 +122,3 @@ class Experiments(APIResource):
         self._client.request(
             "PATCH", f"/experiments/{experiment.id}", json={"status": status}
         )
-
-
-class Datasets(APIResource):
-    def __init__(self, client: framework.Hamming) -> None:
-        super().__init__(client)
-
-    def load(self, id: str) -> DatasetWithItems:
-        resp_data = self._client.request("GET", f"/datasets/{id}")
-        return DatasetWithItems(**resp_data["dataset"])
-
-    def list(self) -> list[Dataset]:
-        resp_data = self._client.request("GET", "/datasets")
-        return [Dataset(**d) for d in resp_data["datasets"]]
-
-    def create(self, create_opts: CreateDatasetOptions) -> Dataset:
-        resp_data = self._client.request(
-            "POST", "/datasets", json=create_opts.model_dump()
-        )
-        return Dataset(**resp_data["dataset"])
-
-
-class Tracing(APIResource):
-    _collected: list[TraceEventType] = []
-    _current_local_trace_id: int = 0
-
-    def __init__(self, client: framework.Hamming) -> None:
-        super().__init__(client)
-
-    def _next_trace_id(self) -> int:
-        self._current_local_trace_id += 1
-        return self._current_local_trace_id
-
-    def _flush(self, experiment_item_id: str):
-        events = self._collected
-        self._collected = []
-
-        root_trace: TraceEventType = {
-            "id": self._next_trace_id(),
-            "experimentItemId": experiment_item_id,
-            "event": {"kind": "root"},
-        }
-
-        traces: list[TraceEventType] = [root_trace]
-        for event in events:
-            traces.append(
-                {
-                    "id": self._next_trace_id(),
-                    "experimentItemId": experiment_item_id,
-                    "parentId": root_trace["id"],
-                    "event": event,
-                }
-            )
-
-        self._client.request("POST", "/traces", json={"traces": traces})
-
-    @staticmethod
-    def _generation_event(params: GenerationParams) -> TraceEventType:
-        event = params.model_dump()
-        event["kind"] = "llm"
-        return event
-
-    @staticmethod
-    def _retrieval_event(params: RetrievalParams) -> TraceEventType:
-        def normalize_document(doc: Document | str) -> Document:
-            if isinstance(doc, str):
-                return Document(pageContent=doc, metadata={})
-            return doc
-
-        params.results = [normalize_document(r) for r in params.results]
-        event = params.model_dump()
-        event["kind"] = "vector"
-        return event
-
-    def log(self, trace: TraceEventType):
-        self._collected.append(trace)
-
-    def log_generation(self, params: GenerationParams):
-        self.log(Tracing._generation_event(params))
-
-    def log_retrieval(self, params: RetrievalParams):
-        self.log(Tracing._retrieval_event(params))
