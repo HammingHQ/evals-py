@@ -7,29 +7,71 @@ from .types import GenerationParams, LLMProvider
 
 
 class OpenAILogger:
-    from openai.types.chat import ChatCompletion
+    from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
     def __init__(self, hamming_client: Hamming):
         self._client = hamming_client
 
-    def log_chat_completion(
+    def log_chat_completion_error(
         self,
-        duration_ms: int,
         req_kwargs: dict,
+        error_message: str,
+    ):
+        self._log_chat_completion(
+            req_kwargs=req_kwargs,
+            error=True,
+            error_message=error_message,
+        )
+
+    def log_chat_completion_success(
+        self,
+        req_kwargs: dict,
+        duration_ms: int,
+        resp: ChatCompletion,
+    ):
+        self._log_chat_completion(
+            req_kwargs=req_kwargs,
+            duration_ms=duration_ms,
+            resp=resp,
+        )
+    
+    def log_chat_completion_success_streaming(
+        self,
+        req_kwargs: dict,
+        duration_ms: int,
+        resp_chunks: list[ChatCompletionChunk],
+    ):
+        self._log_chat_completion(
+            req_kwargs=req_kwargs,
+            duration_ms=duration_ms,
+            resp_chunks=resp_chunks,
+        )
+
+    def _log_chat_completion(
+        self,
+        req_kwargs: dict,
+        duration_ms: int = 0,
         resp: Optional[ChatCompletion] = None,
+        resp_chunks: Optional[list[ChatCompletionChunk]] = None,
         error: bool = False,
         error_message: Optional[str] = None,
     ):
         model = resp.model if resp else req_kwargs.get("model")
         req_msgs = req_kwargs.get("messages")
-        resp_msgs = [c.model_dump() for c in resp.choices] if resp else []
+        if resp:
+            resp_msgs = [c.model_dump() for c in resp.choices]
+        elif resp_chunks:
+            resp_msgs = [[c.model_dump() for c in chunk.choices] for chunk in resp_chunks]     
+        else:
+            resp_msgs = []
         self._client.tracing.log_generation(
             GenerationParams(
                 input=dumps(req_msgs),
-                output=dumps(resp_msgs) if resp else None,
+                output=dumps(resp_msgs),
                 metadata=GenerationParams.Metadata(
                     provider=LLMProvider.OPENAI,
                     model=model,
+                    stream=req_kwargs.get("stream"),
                     max_tokens=req_kwargs.get("max_tokens"),
                     n=req_kwargs.get("n"),
                     seed=req_kwargs.get("seed"),
@@ -57,26 +99,41 @@ class WrappedSyncCompletions:
 
     def create(self, *args, **kwargs):
         start_ts = time.time()
-        error = False
-        error_message = None
-        resp = None
+        is_stream = kwargs.get("stream", False)
         try:
             resp = self.__original.create(*args, **kwargs)
+            if is_stream:
+                def gen():
+                    all_chunks = []
+                    try:
+                        for chunk in resp:
+                            all_chunks.append(chunk)
+                            yield chunk
+                    except Exception as e:
+                        self._logger.log_chat_completion_error(
+                            req_kwargs=kwargs,
+                            error_message=str(e),
+                        )
+                        raise e
+                    self._logger.log_chat_completion_success_streaming(
+                        req_kwargs=kwargs,
+                        duration_ms=int((time.time() - start_ts) * 1000),
+                        resp_chunks=all_chunks,
+                    )
+                return gen()
+            else:                
+                self._logger.log_chat_completion_success(
+                    req_kwargs=kwargs,
+                    duration_ms=int((time.time() - start_ts) * 1000),
+                    resp=resp,
+                )
+                return resp
         except Exception as e:
-            error = True
-            error_message = str(e)
-            raise e
-        finally:
-            end_ts = time.time()
-            duration_ms = int((end_ts - start_ts) * 1000)
-            self._logger.log_chat_completion(
-                duration_ms=duration_ms,
+            self._logger.log_chat_completion_error(
                 req_kwargs=kwargs,
-                resp=resp,
-                error=error,
-                error_message=error_message,
+                error_message=str(e),
             )
-        return resp
+            raise e
 
 
 class WrappedAsyncCompletions:
@@ -89,26 +146,41 @@ class WrappedAsyncCompletions:
 
     async def create(self, *args, **kwargs):
         start_ts = time.time()
-        error = False
-        error_message = None
-        resp = None
+        is_stream = kwargs.get("stream", False)
         try:
             resp = await self.__original.create(*args, **kwargs)
+            if is_stream:
+                async def gen():
+                    all_chunks = []
+                    try:
+                        async for chunk in resp:
+                            all_chunks.append(chunk)
+                            yield chunk
+                    except Exception as e:
+                        self._logger.log_chat_completion_error(
+                            req_kwargs=kwargs,
+                            error_message=str(e),
+                        )
+                        raise e
+                    self._logger.log_chat_completion_success_streaming(
+                        req_kwargs=kwargs,
+                        duration_ms=int((time.time() - start_ts) * 1000),
+                        resp_chunks=all_chunks,
+                    )
+                return gen()
+            else:                
+                self._logger.log_chat_completion_success(
+                    req_kwargs=kwargs,
+                    duration_ms=int((time.time() - start_ts) * 1000),
+                    resp=resp,
+                )
+                return resp
         except Exception as e:
-            error = True
-            error_message = str(e)
-            raise e
-        finally:
-            end_ts = time.time()
-            duration_ms = int((end_ts - start_ts) * 1000)
-            self._logger.log_chat_completion(
-                duration_ms=duration_ms,
+            self._logger.log_chat_completion_error(
                 req_kwargs=kwargs,
-                resp=resp,
-                error=error,
-                error_message=error_message,
+                error_message=str(e),
             )
-        return resp
+            raise e
 
 
 def wrap_openai(openai_client, hamming_client):

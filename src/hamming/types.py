@@ -143,6 +143,7 @@ class GenerationParams(BaseModel):
     class Metadata(BaseModel):
         provider: Optional[Union[LLMProvider, str]] = None
         model: Optional[str] = None
+        stream: Optional[bool] = None
         max_tokens: Optional[int] = None
         n: Optional[int] = None
         seed: Optional[int] = None
@@ -201,3 +202,8 @@ class LogMessageType(str, Enum):
 class LogMessage(BaseModel):
     message_type: LogMessageType
     message_payload: Union[MonitoringTrace]
+
+class TracingMode(Enum):
+    OFF = "off"
+    MONITORING = "monitoring"
+    EXPERIMENT = "experiment"

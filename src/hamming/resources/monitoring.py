@@ -6,7 +6,12 @@ import threading
 import time
 
 from .api_resource import APIResource
-from ..types import MonitoringTrace, MonitoringTraceContext, MonitoringItemStatus
+from ..types import (
+    MonitoringTrace, 
+    MonitoringTraceContext, 
+    MonitoringItemStatus, 
+    TracingMode
+)
 
 
 @dataclass
@@ -24,12 +29,12 @@ class Monitoring(APIResource):
         with self._lock:
             if not self._session:
                 self._session = Session()
-            self._client.tracing._set_live(True)
+            self._client.tracing._set_mode(TracingMode.MONITORING)
 
     def stop(self):
         with self._lock:
             self._session = None
-            self._client.tracing._set_live(False)
+            self._client.tracing._set_mode(TracingMode.OFF)
 
     def start_item(self, input: Optional[dict] = {}, metadata: Optional[dict] = {}):
         (session_id, seq_id) = self._next_seq_id()

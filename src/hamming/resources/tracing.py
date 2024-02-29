@@ -1,3 +1,5 @@
+import logging
+
 from . import APIResource
 from ..types import (
     ExperimentTrace,
@@ -8,23 +10,29 @@ from ..types import (
     Document,
     LogMessage,
     LogMessageType,
+    TracingMode,
 )
+
+log = logging.getLogger(__name__)
 
 
 class Tracing(APIResource):
     _collected_events: list[TraceEventType] = []
     _current_local_trace_id: int = 0
 
-    _is_live: bool = False
+    _mode: TracingMode = TracingMode.OFF
 
-    def _set_live(self, live: bool):
-        self._is_live = live
+    def _set_mode(self, mode: TracingMode):
+        self._mode = mode
 
     def _next_trace_id(self) -> int:
         self._current_local_trace_id += 1
         return self._current_local_trace_id
 
     def _flush(self, experiment_item_id: str):
+        if self._mode != TracingMode.EXPERIMENT:
+            log.warning("Tracing mode must be set to <experiment>!")
+            return
         events = self._collected_events
         self._collected_events = []
 
@@ -66,12 +74,15 @@ class Tracing(APIResource):
         return event
 
     def _log_live_trace(self, trace: MonitoringTrace):
+        if self._mode != TracingMode.MONITORING:
+            log.warning("Tracing mode must be set to <monitoring>!")
+            return
         self._client._logger.log(
             LogMessage(message_type=LogMessageType.Monitoring, message_payload=trace)
         )
 
     def log(self, trace: TraceEventType):
-        if self._is_live:
+        if self._mode == TracingMode.MONITORING:
             context = self._client.monitoring._get_tracing_context()
             self._log_live_trace(
                 MonitoringTrace(
@@ -81,8 +92,10 @@ class Tracing(APIResource):
                     event=trace,
                 )
             )
-        else:
+        elif self._mode == TracingMode.EXPERIMENT:
             self._collected_events.append(trace)
+        else:
+            log.warning("Attempt to send a log trace, but tracing mode is off!")
 
     def log_generation(self, params: GenerationParams):
         self.log(Tracing._generation_event(params))

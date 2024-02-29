@@ -16,6 +16,7 @@ from ..types import (
     RunOptions,
     RunResult,
     ScoreType,
+    TracingMode,
 )
 from ..utils import get_url_origin
 from .api_resource import APIResource
@@ -65,6 +66,8 @@ class Experiments(APIResource):
         self._items = ExperimentItems(client)
 
     def run(self, opts: RunOptions, run: Runner) -> RunResult:
+        self._client.tracing._set_mode(TracingMode.EXPERIMENT)
+        
         dataset_id = opts.dataset
         dataset = self._client.datasets.load(dataset_id)
 
