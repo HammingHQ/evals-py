@@ -128,9 +128,30 @@ class ExperimentItemContext(BaseModel):
 TraceEventType: TypeAlias = Mapping[str, Any]
 
 
+class LLMProvider(str, Enum):
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    AZURE_OPENAI = "azure_openai"
+
+
 class GenerationParams(BaseModel):
+    class Usage(BaseModel):
+        completion_tokens: int
+        prompt_tokens: int
+        total_tokens: int
+
     class Metadata(BaseModel):
+        provider: Optional[Union[LLMProvider, str]] = None
         model: Optional[str] = None
+        stream: Optional[bool] = None
+        max_tokens: Optional[int] = None
+        n: Optional[int] = None
+        seed: Optional[int] = None
+        temperature: Optional[float] = None
+        usage: Optional["GenerationParams.Usage"] = None
+        duration_ms: Optional[int] = None
+        error: bool = False
+        error_message: Optional[str] = None
 
     input: Optional[str] = None
     output: Optional[str] = None
@@ -151,8 +172,38 @@ class RetrievalParams(BaseModel):
     metadata: Optional[Metadata] = None
 
 
-class Trace(BaseModel):
+class ExperimentTrace(BaseModel):
     id: int
     experimentItemId: str
     parentId: Optional[int] = None
     event: TraceEventType
+
+
+class MonitoringTraceContext(BaseModel):
+    session_id: str
+    seq_id: int
+    parent_seq_id: Optional[int] = None
+
+
+class MonitoringTrace(MonitoringTraceContext):
+    event: TraceEventType
+
+
+class MonitoringItemStatus(str, Enum):
+    STARTED = "STARTED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class LogMessageType(int, Enum):
+    Monitoring = 1
+
+
+class LogMessage(BaseModel):
+    type: LogMessageType
+    payload: Union[MonitoringTrace]
+
+class TracingMode(Enum):
+    OFF = "off"
+    MONITORING = "monitoring"
+    EXPERIMENT = "experiment"

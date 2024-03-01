@@ -10,6 +10,9 @@ class Hamming(HttpClient):
     experiments: resources.Experiments
     datasets: resources.Datasets
     tracing: resources.Tracing
+    monitoring: resources.Monitoring
+
+    _logger: resources.AsyncLogger
 
     def __init__(self, config: ClientOptions) -> None:
         super().__init__(
@@ -20,3 +23,7 @@ class Hamming(HttpClient):
         self.experiments = resources.Experiments(self)
         self.datasets = resources.Datasets(self)
         self.tracing = resources.Tracing(self)
+        self.monitoring = resources.Monitoring(self)
+
+        self._logger = resources.AsyncLogger(self)
+        self._logger.start()
