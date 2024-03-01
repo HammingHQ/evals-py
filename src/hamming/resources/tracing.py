@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from . import APIResource
 from ..types import (
@@ -17,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 class Tracing(APIResource):
-    _collected_events: list[TraceEventType] = []
+    _collected_events: List[TraceEventType] = []
     _current_local_trace_id: int = 0
 
     _mode: TracingMode = TracingMode.OFF
@@ -42,7 +43,7 @@ class Tracing(APIResource):
             event={"kind": "root"},
         )
 
-        traces: list[ExperimentTrace] = [root_trace]
+        traces: List[ExperimentTrace] = [root_trace]
         for event in events:
             traces.append(
                 ExperimentTrace(
@@ -53,7 +54,10 @@ class Tracing(APIResource):
                 )
             )
 
-        self._client.request("POST", "/traces", json={"traces": traces})
+        # TODO: Remove exclude_none when the API supports it
+        # It will be a breaking change.
+        trace_objects = [t.model_dump(exclude_none=True) for t in traces]
+        self._client.request("POST", "/traces", json={"traces": trace_objects})
 
     @staticmethod
     def _generation_event(params: GenerationParams) -> TraceEventType:
