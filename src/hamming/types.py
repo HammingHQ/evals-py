@@ -195,13 +195,13 @@ class MonitoringItemStatus(str, Enum):
     FAILED = "FAILED"
 
 
-class LogMessageType(str, Enum):
-    Monitoring = "monitoring"
+class LogMessageType(int, Enum):
+    Monitoring = 1
 
 
 class LogMessage(BaseModel):
-    message_type: LogMessageType
-    message_payload: Union[MonitoringTrace]
+    type: LogMessageType
+    payload: Union[MonitoringTrace]
 
 class TracingMode(Enum):
     OFF = "off"

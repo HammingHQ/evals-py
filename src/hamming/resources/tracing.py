@@ -78,7 +78,7 @@ class Tracing(APIResource):
             log.warning("Tracing mode must be set to <monitoring>!")
             return
         self._client._logger.log(
-            LogMessage(message_type=LogMessageType.Monitoring, message_payload=trace)
+            LogMessage(type=LogMessageType.Monitoring, payload=trace)
         )
 
     def log(self, trace: TraceEventType):
