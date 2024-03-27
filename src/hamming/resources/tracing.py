@@ -61,7 +61,7 @@ class Tracing(APIResource):
 
     @staticmethod
     def _generation_event(params: GenerationParams) -> TraceEventType:
-        event = params.model_dump()
+        event = params.model_dump(exclude_none=True)
         event["kind"] = "llm"
         return event
 
@@ -73,7 +73,7 @@ class Tracing(APIResource):
             return doc
 
         params.results = [normalize_document(r) for r in params.results]
-        event = params.model_dump()
+        event = params.model_dump(exclude_none=True)
         event["kind"] = "vector"
         return event
 

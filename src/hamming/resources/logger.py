@@ -79,7 +79,7 @@ class AsyncLogger(APIResource):
     def _publish(self, msgs: list[LogMessage]):
         log.debug(f"Publishing {len(msgs)} messages..")
         try:
-            logs = [m.model_dump() for m in msgs]
+            logs = [m.model_dump(exclude_none=True) for m in msgs]
             self._client.request("POST", "/logs", json={"logs": logs})
             log.debug(f"Published {len(msgs)} messages!")
         except Exception as e:
