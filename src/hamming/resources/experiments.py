@@ -47,7 +47,11 @@ class ExperimentItems(APIResource):
         self._client.request(
             "PATCH",
             f"/experiments/{item.experimentId}/items/{item.id}",
-            json={"output": output, "metrics": {"durationMs": duration_ms}},
+            json={
+                "output": output,
+                "scores": {}, # TODO: Custom Scores
+                "metrics": {"durationMs": duration_ms},
+            },
         )
 
 
