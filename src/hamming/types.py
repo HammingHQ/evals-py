@@ -232,8 +232,8 @@ class NumericScoreConfig(BaseModel):
 
 class ClassificationScoreConfig(BaseModel):
     type: FunctionType = FunctionType.CLASSIFICATION
-    labels: Dict[float, str]
-    colors: Optional[Dict[float, LabelColor]]
+    labels: Dict[int, str]
+    colors: Optional[Dict[int, LabelColor]]
 
 ScoreConfig = Union[NumericScoreConfig, ClassificationScoreConfig]
 
