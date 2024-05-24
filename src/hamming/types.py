@@ -39,13 +39,6 @@ OutputType: TypeAlias = Dict
 MetadataType: TypeAlias = Dict
 
 
-class RunOptions(BaseModel):
-    dataset: str
-    name: Optional[str]
-    scoring: Optional[list[ScoreType]]
-    metadata: Optional[MetadataType]
-
-
 Runner: TypeAlias = Union[
     Callable[[InputType], OutputType], Callable[[InputType], Awaitable[OutputType]]
 ]
@@ -201,9 +194,78 @@ class LogMessageType(int, Enum):
 
 class LogMessage(BaseModel):
     type: LogMessageType
-    payload: Union[MonitoringTrace]
+    payload: MonitoringTrace
 
 class TracingMode(Enum):
     OFF = "off"
     MONITORING = "monitoring"
     EXPERIMENT = "experiment"
+
+class Score(BaseModel):
+    value: float
+    reason: Optional[str]
+
+class FunctionType(str, Enum):
+    NUMERIC = "numeric"
+    CLASSIFICATION = "classification"
+
+class FunctionAggregateType(str, Enum):
+    MEAN = "mean"
+    MEDIAN = "median"
+
+class LabelColor(str, Enum):
+    GRAY = "gray"
+    LIGHT_GREEN = "light-green"
+    LIGHT_BLUE = "light-blue"
+    AMBER = "amber"
+    PURPLE = "purple"
+    PINK = "pink"
+    GREEN = "green"
+    PASTEL_GREEN = "pastel-green"
+    YELLOW = "yellow"
+    BLUE = "blue"
+    RED = "red"
+
+class NumericScoreConfig(BaseModel):
+    type: FunctionType = FunctionType.NUMERIC
+    aggregate: FunctionAggregateType
+
+class ClassificationScoreConfig(BaseModel):
+    type: FunctionType = FunctionType.CLASSIFICATION
+    labels: Dict[float, str]
+    colors: Optional[Dict[float, LabelColor]]
+
+ScoreConfig = Union[NumericScoreConfig, ClassificationScoreConfig]
+
+
+class ScorerExecutionType(str, Enum):
+    LOCAL = "local"
+    REMOTE = "remote"
+
+class ScoreArgs(BaseModel):
+    input: InputType
+    output: OutputType
+    expected: OutputType
+
+class LocalScorer(BaseModel):
+    type: ScorerExecutionType = ScorerExecutionType.LOCAL
+    score_fn: Callable[[ScoreArgs], Score]
+
+Scorer = LocalScorer
+
+class ScoringFunction(BaseModel):
+    name: str
+    version: int
+    score_config: ScoreConfig
+    scorer: Scorer
+
+class CustomScoringConfig(BaseModel):
+    id: str
+    key_name: str
+
+
+class RunOptions(BaseModel):
+    dataset: str
+    name: Optional[str]
+    scoring: Optional[list[ScoreType | ScoringFunction]]
+    metadata: Optional[MetadataType]
