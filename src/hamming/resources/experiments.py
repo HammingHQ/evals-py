@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 from ..types import (
     DatasetItem,
@@ -17,9 +17,12 @@ from ..types import (
     RunResult,
     ScoreType,
     TracingMode,
+    Score,
+    CustomScoringConfig,
 )
-from ..utils import get_url_origin
 from .api_resource import APIResource
+from .scoring import ScoringHelper
+from ..utils import get_url_origin
 
 DEFAULT_SCORE_TYPES: list[ScoreType] = [ScoreType.STRING_DIFF]
 
@@ -37,19 +40,26 @@ class ExperimentItems(APIResource):
         item_context = ExperimentItemContext(item=item, startTs=datetime.now())
         return item_context
 
-    def end(self, item_context: ExperimentItemContext, output: OutputType):
+    def end(self, 
+        item_context: ExperimentItemContext, 
+        output: OutputType,
+        scores: Dict[str, Score]
+    ):
         item = item_context.item
         start_ts = item_context.startTs
         duration_sec = (datetime.now() - start_ts).total_seconds()
         duration_ms = int(duration_sec * 1000)
 
         self._client.tracing._flush(item.id)
+
         self._client.request(
             "PATCH",
             f"/experiments/{item.experimentId}/items/{item.id}",
             json={
                 "output": output,
-                "scores": {}, # TODO: Custom Scores
+                "scores": {
+                    key: value.model_dump() for key, value in scores.items()
+                },
                 "metrics": {"durationMs": duration_ms},
             },
         )
@@ -79,13 +89,21 @@ class Experiments(APIResource):
         scoring = opts.scoring or DEFAULT_SCORE_TYPES
         metadata = opts.metadata or {}
 
+        scoring_helper = ScoringHelper(self._client, scoring)
+        scoring_helper.initialize()
+
         def execute_runner(run: Runner, input: InputType) -> OutputType:
             if inspect.iscoroutinefunction(run):
                 return asyncio.run(run(input))
             else:
                 return run(input)
 
-        experiment = self._start(name, dataset_id, scoring, metadata)
+        experiment = self._start(
+            name, 
+            dataset_id, 
+            scoring_helper.get_config(), 
+            metadata
+        )
         url_origin = get_url_origin(self._client.base_url)
         experiment_url = f"{url_origin}/experiments/{experiment.id}"
 
@@ -93,7 +111,12 @@ class Experiments(APIResource):
             for dataset_item in dataset.items:
                 item_context = self._items.start(experiment, dataset_item)
                 output = execute_runner(run, dataset_item.input)
-                self._items.end(item_context, output)
+                scores = scoring_helper.score(
+                    dataset_item.input,
+                    dataset_item.output,
+                    output,
+                )
+                self._items.end(item_context, output, scores)
             self._end(experiment)
             return RunResult(url=experiment_url)
         except Exception as ex:
@@ -104,10 +127,13 @@ class Experiments(APIResource):
         self,
         name: str,
         dataset_id: str,
-        scoring: list[ScoreType],
+        scoring: list[ScoreType | CustomScoringConfig],
         metadata: MetadataType,
     ) -> Experiment:
         status = ExperimentStatus.RUNNING
+        scoring_obj = [
+            s.model_dump() if type(s) == CustomScoringConfig else s for s in scoring
+        ]
         resp_data = self._client.request(
             "POST",
             "/experiments",
@@ -115,7 +141,7 @@ class Experiments(APIResource):
                 "name": name,
                 "dataset": dataset_id,
                 "status": status,
-                "scoring": scoring,
+                "scoring": scoring_obj,
                 "metadata": metadata,
             },
         )
