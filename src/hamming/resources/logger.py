@@ -27,7 +27,7 @@ class AsyncLogger(APIResource):
     def __init__(self, _client: framework.Hamming):
         super().__init__(_client)
         self._queue = queue.Queue()
-        self._thread = threading.Thread(target=self._process_queue, daemon=True)
+        self._thread = threading.Thread(target=self._run_queue, daemon=True)
         self._stop_event = threading.Event()
         atexit.register(self.stop)
 
@@ -57,24 +57,33 @@ class AsyncLogger(APIResource):
                 break
         return drained_msgs
 
-    def _process_queue(self):
+    def _process_queue(self) -> bool:
+        log.debug("Processing loop started..")
+
+        msg = self._queue.get()
+        if msg is None:
+            log.info("Received stop signal from queue!")
+            self._queue.task_done()
+            return True
+        msgs_to_process = [msg]
+        msgs_to_process.extend(self._drain_queue())
+
+        log.debug(f"Processing {len(msgs_to_process)} message(s) from the queue")
+
+        self._publish(msgs_to_process)
+        for msg in msgs_to_process:
+            self._queue.task_done()
+        log.debug("Processing loop done!")
+        return False
+
+    def _run_queue(self):
         while not self._stop_event.is_set():
-            log.debug("Processing loop started..")
-
-            msg = self._queue.get()
-            if msg is None:
-                log.info("Received stop signal from queue!")
-                self._queue.task_done()
-                break
-            msgs_to_process = [msg]
-            msgs_to_process.extend(self._drain_queue())
-
-            log.debug(f"Processing {len(msgs_to_process)} message(s) from the queue")
-
-            self._publish(msgs_to_process)
-            for msg in msgs_to_process:
-                self._queue.task_done()
-            log.debug("Processing loop done!")
+            done = self._process_queue()
+            if done:
+                # Skip last loop if we're shutting down
+                return
+        # Last processing loop to drain the queue
+        self._process_queue()
 
     def _publish(self, msgs: list[LogMessage]):
         log.debug(f"Publishing {len(msgs)} messages..")
