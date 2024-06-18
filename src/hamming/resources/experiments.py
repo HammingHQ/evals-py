@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, Awaitable
 
 from ..types import (
     DatasetItem,
@@ -111,6 +111,50 @@ class Experiments(APIResource):
             for dataset_item in dataset.items:
                 item_context = self._items.start(experiment, dataset_item)
                 output = execute_runner(run, dataset_item.input)
+                scores = scoring_helper.score(
+                    dataset_item.input,
+                    dataset_item.output,
+                    output,
+                )
+                self._items.end(item_context, output, scores)
+            self._end(experiment)
+            return RunResult(url=experiment_url)
+        except Exception as ex:
+            self._end(experiment, status=ExperimentStatus.FAILED)
+            raise ex
+        
+    async def arun(self, opts: RunOptions, run: Runner) -> Awaitable[RunResult]:
+        self._client.tracing._set_mode(TracingMode.EXPERIMENT)
+        
+        dataset_id = opts.dataset
+        dataset = self._client.datasets.load(dataset_id)
+
+        name = opts.name or Experiments.generate_name(dataset.name)
+        scoring = opts.scoring or DEFAULT_SCORE_TYPES
+        metadata = opts.metadata or {}
+
+        scoring_helper = ScoringHelper(self._client, scoring)
+        scoring_helper.initialize()
+
+        async def execute_runner(run: Runner, input: InputType) -> OutputType:
+            if inspect.iscoroutinefunction(run):
+                return await run(input)
+            else:
+                return run(input)
+
+        experiment = self._start(
+            name, 
+            dataset_id, 
+            scoring_helper.get_config(), 
+            metadata
+        )
+        url_origin = get_url_origin(self._client.base_url)
+        experiment_url = f"{url_origin}/experiments/{experiment.id}"
+
+        try:
+            for dataset_item in dataset.items:
+                item_context = self._items.start(experiment, dataset_item)
+                output = await execute_runner(run, dataset_item.input)
                 scores = scoring_helper.score(
                     dataset_item.input,
                     dataset_item.output,
