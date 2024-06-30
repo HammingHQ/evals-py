@@ -269,3 +269,6 @@ class RunOptions(BaseModel):
     name: Optional[str]
     scoring: Optional[list[ScoreType | ScoringFunction]]
     metadata: Optional[MetadataType]
+
+class Prompt(BaseModel):
+    slug: str
