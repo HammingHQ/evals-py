@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ..types import Prompt
+from ..types import Prompt, FullPromptContent
 from .api_resource import APIResource
 
 class Prompts(APIResource):
@@ -16,5 +16,5 @@ class Prompts(APIResource):
         if version:
             url += f"&version={version}"
         resp_data = self._client.request("GET", url)
-        prompt = Prompt(**resp_data["prompt"])
+        prompt = FullPromptContent(**resp_data["prompt"])
         return prompt
