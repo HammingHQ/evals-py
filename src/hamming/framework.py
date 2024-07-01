@@ -27,3 +27,14 @@ class Hamming(HttpClient):
 
         self._logger = resources.AsyncLogger(self)
         self._logger.start()
+        _set_client(self)
+
+def get_client() -> Hamming:
+    global _CLIENT
+    if _CLIENT is None:
+        raise ValueError("Hamming client not initialized")
+    return _CLIENT
+
+def _set_client(client: Hamming) -> None:
+    global _CLIENT
+    _CLIENT = client

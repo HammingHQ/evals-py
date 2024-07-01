@@ -176,6 +176,7 @@ class MonitoringTraceContext(BaseModel):
     session_id: str
     seq_id: int
     parent_seq_id: Optional[int] = None
+    root_seq_id: Optional[int] = None
 
 
 class MonitoringTrace(MonitoringTraceContext):
