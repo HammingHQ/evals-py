@@ -269,3 +269,31 @@ class RunOptions(BaseModel):
     name: Optional[str]
     scoring: Optional[list[ScoreType | ScoringFunction]]
     metadata: Optional[MetadataType]
+
+class Prompt(BaseModel):
+    slug: str
+
+class ToolChoice(BaseModel):
+    choice: str
+    functionName: Optional[str] = None
+
+class PromptSettings(BaseModel):
+    temperature: Optional[float] = None
+    maxTokens: Optional[int] = None
+    topP: Optional[float] = None
+    frequencyPenalty: Optional[float] = None
+    presencePenalty: Optional[float] = None
+    toolChoice: Optional[ToolChoice] = None
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class PromptContent(BaseModel):
+    languageModel: str
+    promptSettings: PromptSettings
+    chatMessages: list[ChatMessage] = []
+    tools: Optional[Dict[str, str]] = None
+
+class FullPromptContent(Prompt):
+    content: PromptContent

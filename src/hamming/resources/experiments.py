@@ -118,6 +118,8 @@ class Experiments(APIResource):
                 )
                 self._items.end(item_context, output, scores)
             self._end(experiment)
+
+            print(f"Experiment completed. View the experiment details at: {experiment_url}")
             return RunResult(url=experiment_url)
         except Exception as ex:
             self._end(experiment, status=ExperimentStatus.FAILED)
