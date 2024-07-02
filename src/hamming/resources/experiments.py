@@ -2,6 +2,7 @@ import asyncio
 import inspect
 from datetime import datetime
 from typing import Optional, Dict, Awaitable
+from concurrent.futures import ThreadPoolExecutor
 
 from ..types import (
     DatasetItem,
@@ -107,19 +108,37 @@ class Experiments(APIResource):
         url_origin = get_url_origin(self._client.base_url)
         experiment_url = f"{url_origin}/experiments/{experiment.id}"
 
+        def run_item(dataset_item: DatasetItem):
+            item_context = self._items.start(experiment, dataset_item)
+            output = execute_runner(run, dataset_item.input)
+            scores = scoring_helper.score(
+                dataset_item.input,
+                dataset_item.output,
+                output,
+            )
+            self._items.end(item_context, output, scores)
+
         try:
-            for dataset_item in dataset.items:
-                item_context = self._items.start(experiment, dataset_item)
-                output = execute_runner(run, dataset_item.input)
-                scores = scoring_helper.score(
-                    dataset_item.input,
-                    dataset_item.output,
-                    output,
-                )
-                self._items.end(item_context, output, scores)
+            if (opts.parallel):
+                if isinstance(opts.parallel, bool):
+                    worker_count = None
+                elif isinstance(opts.parallel, int):
+                    worker_count = opts.parallel
+                else:
+                    raise ValueError(f"Invalid parallel option: {opts.parallel}")
+
+                with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                    futures = [
+                        executor.submit(run_item, dataset_item)
+                        for dataset_item in dataset.items
+                    ]
+                    for future in futures:
+                        future.result()
+            else:
+                for dataset_item in dataset.items:
+                    run_item(dataset_item)
             self._end(experiment)
 
-            print(f"Experiment completed. View the experiment details at: {experiment_url}")
             return RunResult(url=experiment_url)
         except Exception as ex:
             self._end(experiment, status=ExperimentStatus.FAILED)
