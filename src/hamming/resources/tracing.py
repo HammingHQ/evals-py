@@ -93,6 +93,7 @@ class Tracing(APIResource):
                     session_id=context.session_id,
                     seq_id=context.seq_id,
                     parent_seq_id=context.parent_seq_id,
+                    root_seq_id=context.root_seq_id,
                     event=trace,
                 )
             )
