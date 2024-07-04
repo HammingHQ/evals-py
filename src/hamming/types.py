@@ -10,6 +10,7 @@ from typing import (
     Optional,
     TypeAlias,
     Union,
+    Literal,
 )
 
 
@@ -275,9 +276,15 @@ class RunOptions(BaseModel):
 class Prompt(BaseModel):
     slug: str
 
-class ToolChoice(BaseModel):
+class OpenAIToolChoice(BaseModel):
+    modelFamily: Literal["openai"]
     choice: str
     functionName: Optional[str] = None
+
+class AnthropicToolChoice(BaseModel):
+    modelFamily: Literal["anthropic"]
+    type: str
+    tool: Optional[str] = None
 
 class PromptSettings(BaseModel):
     temperature: Optional[float] = None
@@ -285,7 +292,7 @@ class PromptSettings(BaseModel):
     topP: Optional[float] = None
     frequencyPenalty: Optional[float] = None
     presencePenalty: Optional[float] = None
-    toolChoice: Optional[ToolChoice] = None
+    toolChoice: Optional[OpenAIToolChoice | AnthropicToolChoice] = None
 
 class ChatMessage(BaseModel):
     role: str
@@ -295,7 +302,7 @@ class PromptContent(BaseModel):
     languageModel: str
     promptSettings: PromptSettings
     chatMessages: list[ChatMessage] = []
-    tools: Optional[Dict[str, str]] = None
+    tools: Optional[str] = None
 
 class FullPromptContent(Prompt):
-    content: PromptContent
+    content: Optional[PromptContent] = None
