@@ -283,7 +283,7 @@ class OpenAIToolChoice(BaseModel):
 
 class AnthropicToolChoice(BaseModel):
     modelFamily: Literal["anthropic"]
-    type: str
+    choice: str
     tool: Optional[str] = None
 
 class PromptSettings(BaseModel):
