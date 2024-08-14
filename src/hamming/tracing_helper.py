@@ -4,6 +4,7 @@ import inspect
 import logging
 
 from hamming import get_client
+from hamming.types import ConversationConfig
 
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,8 @@ def is_async(func: Callable[P, R]) -> bool:
 def traced(
     *, 
     name: Optional[str] = None, 
-    metadata: Optional[Mapping[str, Any]] = None
+    metadata: Optional[Mapping[str, Any]] = None,
+    conversation: Optional[ConversationConfig] = None,
 ):
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         def inner(*args: Any, **kwargs: Any):
@@ -26,7 +28,7 @@ def traced(
             inputs = _get_inputs(signature, *args, **kwargs)
             name_ = name or func.__name__
             with client.monitoring.start_item(
-                inputs, name=name_, metadata=metadata
+                inputs, name=name_, metadata=metadata, conversation=conversation
             ) as monitoring_item:
                 result = func(*args, **kwargs)
                 outputs = result if isinstance(result, dict) else {"result": result}
@@ -39,7 +41,7 @@ def traced(
             inputs = _get_inputs(signature, *args, **kwargs)
             name_ = name or func.__name__
             with client.monitoring.start_item(
-                inputs, name=name_, metadata=metadata
+                inputs, name=name_, metadata=metadata, conversation=conversation
             ) as monitoring_item:
                 result = await func(*args, **kwargs)
                 outputs = result if isinstance(result, dict) else {"result": result}

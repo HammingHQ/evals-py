@@ -306,3 +306,8 @@ class PromptContent(BaseModel):
 
 class FullPromptContent(Prompt):
     content: Optional[PromptContent] = None
+
+class ConversationConfig(BaseModel):
+    id: str
+    input: Optional[str] = None
+    output: Optional[str] = None

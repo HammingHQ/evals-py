@@ -11,7 +11,8 @@ from ..types import (
     MonitoringTrace, 
     MonitoringTraceContext, 
     MonitoringItemStatus, 
-    TracingMode
+    TracingMode,
+    ConversationConfig
 )
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,8 @@ class Monitoring(APIResource):
         self, 
         input: Optional[dict] = {}, 
         name: Optional[str] = None, 
-        metadata: Optional[dict] = {}
+        metadata: Optional[dict] = {},
+        conversation: Optional[ConversationConfig] = None,
     ):
         (session_id, seq_id) = self._next_seq_id()
         current_tree = self._current_tree.get()
@@ -60,12 +62,13 @@ class Monitoring(APIResource):
             parent_seq_id, 
             root_seq_id
         )
-        item._start(input, name, metadata)
+        item._start(input, name, metadata, conversation)
         current_tree.add_child(item)
         self._current_tree.set(current_tree)
         return item
 
     def _end_item(self, trace: MonitoringTrace):
+        print(f">>>>>>>> ENDING ITEM: {trace.model_dump_json()}")
         current_tree: MonitoringTree = self._current_tree.get()
         if not current_tree:
             logger.warn("Missing monitoring tree")
@@ -111,6 +114,7 @@ class MonitoringItem:
     _output: Optional[dict] = None
     _name: Optional[str] = None
     _metadata: Optional[dict] = None
+    _conversation: Optional[ConversationConfig] = None
     _metrics: dict
     _status: MonitoringItemStatus
     _error_message: Optional[str] = None
@@ -144,13 +148,16 @@ class MonitoringItem:
         self, 
         input: Optional[dict] = {}, 
         name: Optional[str] = None, 
-        metadata: Optional[dict] = {}
+        metadata: Optional[dict] = {},
+        conversation: Optional[ConversationConfig] = None,
     ):
         self._input = input
         self._name = name
         self._metadata = metadata
+        self._conversation = conversation
         self._start_ts = time.time()
         self._status = MonitoringItemStatus.STARTED
+        print(f">>>>>>>> STARTING ITEM: {self._to_trace().model_dump_json()}")
 
     def _end(self, error: bool = False, error_message: Optional[str] = None):
         if self._has_ended():
@@ -181,6 +188,7 @@ class MonitoringItem:
                 "output": self._output,
                 "name": self._name,
                 "metadata": self._metadata,
+                "conversation": self._conversation,
                 "metrics": self._metrics,
                 "status": self._status,
                 "error_message": self._error_message,
