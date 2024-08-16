@@ -44,7 +44,8 @@ class ExperimentItems(APIResource):
     def end(self, 
         item_context: ExperimentItemContext, 
         output: OutputType,
-        scores: Dict[str, Score]
+        scores: Dict[str, Score],
+        failed: bool = False
     ):
         item = item_context.item
         start_ts = item_context.startTs
@@ -62,6 +63,7 @@ class ExperimentItems(APIResource):
                     key: value.model_dump() for key, value in scores.items()
                 },
                 "metrics": {"durationMs": duration_ms},
+                "failed": failed,
             },
         )
 
@@ -109,14 +111,19 @@ class Experiments(APIResource):
         experiment_url = f"{url_origin}/experiments/{experiment.id}"
 
         def run_item(dataset_item: DatasetItem):
-            item_context = self._items.start(experiment, dataset_item)
-            output = execute_runner(run, dataset_item.input)
-            scores = scoring_helper.score(
-                dataset_item.input,
-                dataset_item.output,
-                output,
-            )
-            self._items.end(item_context, output, scores)
+            try:
+                item_context = self._items.start(experiment, dataset_item)
+                output = execute_runner(run, dataset_item.input)
+                scores = scoring_helper.score(
+                    dataset_item.input,
+                    dataset_item.output,
+                    output,
+                )
+                self._items.end(item_context, output, scores)
+            except Exception as ex:
+                print(ex)
+                output = {"error": str(ex)}
+                self._items.end(item_context, output, {}, failed=True)
 
         try:
             if (opts.parallel):
@@ -174,14 +181,19 @@ class Experiments(APIResource):
 
         try:
             for dataset_item in dataset.items:
-                item_context = self._items.start(experiment, dataset_item)
-                output = await execute_runner(run, dataset_item.input)
-                scores = scoring_helper.score(
-                    dataset_item.input,
-                    dataset_item.output,
-                    output,
-                )
-                self._items.end(item_context, output, scores)
+                try:
+                    item_context = self._items.start(experiment, dataset_item)
+                    output = await execute_runner(run, dataset_item.input)
+                    scores = scoring_helper.score(
+                        dataset_item.input,
+                        dataset_item.output,
+                        output,
+                    )
+                    self._items.end(item_context, output, scores)
+                except Exception as ex:
+                    print(ex)
+                    output = {"error": str(ex)}
+                    self._items.end(item_context, output, {}, failed=True)
             self._end(experiment)
             return RunResult(url=experiment_url)
         except Exception as ex:
