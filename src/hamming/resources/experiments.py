@@ -3,6 +3,7 @@ import inspect
 from datetime import datetime
 from typing import Optional, Dict, Awaitable
 from concurrent.futures import ThreadPoolExecutor
+import traceback
 
 from ..types import (
     DatasetItem,
@@ -121,7 +122,7 @@ class Experiments(APIResource):
                 )
                 self._items.end(item_context, output, scores)
             except Exception as ex:
-                print(ex)
+                print(traceback.format_exc())
                 output = {"error": str(ex)}
                 self._items.end(item_context, output, {}, failed=True)
 
