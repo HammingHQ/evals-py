@@ -258,8 +258,8 @@ Scorer = LocalScorer
 class ScoringFunction(BaseModel):
     name: str
     version: int
-    score_config: ScoreConfig
-    scorer: Scorer
+    score_config: Optional[ScoreConfig] = None
+    scorer: Optional[Scorer] = None
 
 class CustomScoringConfig(BaseModel):
     id: str
