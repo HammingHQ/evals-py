@@ -31,40 +31,41 @@ class ScoringHelper(APIResource):
     def get_config(self) -> list[ScoreType | CustomScoringConfig]:
         if not self._initialized:
             raise Exception("ScoringHelper is not initialized")
-        return self._standard_scoring + [f.registration for f in self._registered_functions]
-    
-    def score(self, input: InputType, expected: OutputType, actual: OutputType) -> dict[str, Score]:
+        return self._standard_scoring + [
+            f.registration for f in self._registered_functions
+        ]
+
+    def score(
+        self, input: InputType, expected: OutputType, actual: OutputType
+    ) -> dict[str, Score]:
         if not self._initialized:
             raise Exception("ScoringHelper is not initialized")
         scores = {}
         for f in self._registered_functions:
-            score = f.scorer.score_fn({ 
-                "input": input, 
-                "expected": expected, 
-                "output": actual 
-            })
+            if f.scorer is None:
+                continue
+            score = f.scorer.score_fn(
+                {"input": input, "expected": expected, "output": actual}
+            )
             scores[f.registration.key_name] = score
         return scores
-    
+
     def _register_scoring_functions(self):
-        scoring_obj = [{
-            "name": f.name,
-            "version": f.version,
-            "score_config": f.score_config.model_dump(),
-            "execution_config": {},
-        } for f in self._custom_scoring]
+        scoring_obj = [
+            {
+                "name": f.name,
+                "version": f.version,
+                "score_config": f.score_config.model_dump() if f.score_config else None,
+                "execution_config": {} if f.scorer else None,
+            }
+            for f in self._custom_scoring
+        ]
 
         data = self._client.request(
-            "POST",
-            "/scoring/register-functions",
-            json={
-                "scoring": scoring_obj
-            }
+            "POST", "/scoring/register-functions", json={"scoring": scoring_obj}
         )
         registrations = data["scoring"]
         self._registered_functions = [
-            RegisteredScoringFunction(
-                **f.model_dump(),
-                registration=registrations[idx]
-            ) 
-        for idx, f in enumerate(self._custom_scoring)]
+            RegisteredScoringFunction(**f.model_dump(), registration=registrations[idx])
+            for idx, f in enumerate(self._custom_scoring)
+        ]
