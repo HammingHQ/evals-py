@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hamming-sdk"
-version = "0.0.15"
+version = "0.0.16"
 authors = [
   { name="Hamming", email="contact@hamming.ai" },
 ]
