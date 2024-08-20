@@ -56,21 +56,20 @@ class OpenAILogger:
         error: bool = False,
         error_message: Optional[str] = None,
     ):
-        model = resp.model if resp else req_kwargs.get("model")
-        req_msgs = req_kwargs.get("messages")
+        trace_input = req_kwargs
         if resp:
-            resp_msgs = [c.model_dump() for c in resp.choices]
+            trace_output = resp.model_dump()
         elif resp_chunks:
-            resp_msgs = [[c.model_dump() for c in chunk.choices] for chunk in resp_chunks]     
+            trace_output = {"chunks": [chunk.model_dump() for chunk in resp_chunks]}
         else:
-            resp_msgs = []
+            trace_output = {}
         self._client.tracing.log_generation(
             GenerationParams(
-                input=dumps(req_msgs),
-                output=dumps(resp_msgs),
+                input=dumps(trace_input),
+                output=dumps(trace_output),
                 metadata=GenerationParams.Metadata(
                     provider=LLMProvider.OPENAI,
-                    model=model,
+                    model=req_kwargs.get("model"),
                     stream=req_kwargs.get("stream"),
                     max_tokens=req_kwargs.get("max_tokens"),
                     n=req_kwargs.get("n"),
