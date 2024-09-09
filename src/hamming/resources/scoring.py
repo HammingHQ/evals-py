@@ -56,7 +56,9 @@ class ScoringHelper(APIResource):
                 "name": f.name,
                 "version": f.version,
                 "score_config": f.score_config.model_dump() if f.score_config else None,
-                "execution_config": {} if f.scorer else None,
+                "execution_config": {
+                    "kind": "local"
+                } if f.scorer else None,
             }
             for f in self._custom_scoring
         ]
